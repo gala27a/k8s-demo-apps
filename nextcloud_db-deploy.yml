@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql-deploy-nc
+  namespace: nextcloud
+spec:
+  selector:
+    matchLabels:
+      name: postgresql-nc
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: postgresql-nc
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15.7-bookworm
+        env:
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: nextcloud-secret
+                key: DB_PASSWORD
+          - name: POSTGRES_USER
+            valueFrom:
+              configMapKeyRef:
+                name: nextcloud-configmap
+                key: DB_USER
+          - name: POSTGRES_DB
+            valueFrom:
+              configMapKeyRef:
+                name: nextcloud-configmap
+                key: DB_NAME
+        volumeMounts:
+          - mountPath: /var/lib/postgresql/data
+            name: postgres-data-pvc
+        resources:
+          limits:
+            cpu: "800m"
+            memory: "512Mi"
+          requests:
+            cpu: "400m"
+            memory: "256Mi"                           
+      volumes:
+        - name: postgres-data-pvc
+          persistentVolumeClaim:
+            claimName: postgres-data-pvc
+      

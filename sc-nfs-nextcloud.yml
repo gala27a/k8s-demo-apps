@@ -1,0 +1,15 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: sc-nextcloud
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: nfs.csi.k8s.io
+volumeBindingMode: Immediate
+reclaimPolicy: Retain    ### Recycle -> https://kubernetes.io/docs/concepts/storage/persistent-volumes/#recycle
+parameters:
+  server: 192.168.5.129
+  share: "/nfs-csi-k8s/nextcloud/"
+#  onDelete: retain
+mountOptions:
+  - nfsvers=4.2

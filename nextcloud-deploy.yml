@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud-deploy
+  namespace: nextcloud
+spec:
+  selector:
+    matchLabels:
+      name: nextcloud-app
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: nextcloud-app
+    spec:
+      containers:
+      - name: nextcloud
+        image: nextcloud:28.0.5
+        env:
+          - name: POSTGRES_HOST
+            value: "postgresql-db-svc.nextcloud.svc.cluster.local"
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: nextcloud-secret
+                key: DB_PASSWORD
+          - name: POSTGRES_USER
+            valueFrom:
+              configMapKeyRef:
+                name: nextcloud-configmap
+                key: DB_USER
+          - name: POSTGRES_DB
+            valueFrom:
+              configMapKeyRef:
+                name: nextcloud-configmap
+                key: DB_NAME
+          - name: NEXTCLOUD_ADMIN_USER
+            valueFrom:
+              configMapKeyRef:
+                name: nextcloud-configmap
+                key: NC_ADMIN_USER
+          - name: NEXTCLOUD_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: nextcloud-secret
+                key: NC_ADMIN_PASSWORD
+          - name: KUBE_IP_POD
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: NEXTCLOUD_TRUSTED_DOMAINS
+            value: $(KUBE_IP_POD) nextcloud.kube.home 192.168.5.145
+          - name: NEXTCLOUD_UPDATE
+            value: "1"    
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/bash", "/var/www/html/scripts/nextcloud-post_config.sh"]
+        resources:
+          limits:
+            cpu: "1300m"
+            memory: "768Mi"
+          requests:
+            cpu: "500m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /status.php
+            port: 80
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /status.php
+            port: 80
+          initialDelaySeconds: 25
+          periodSeconds: 10
+          timeoutSeconds: 8
+          failureThreshold: 45
+          successThreshold: 1
+        volumeMounts:
+          - mountPath: /var/www/html
+            name: nextcloud-pvc
+          - mountPath: /var/www/html/data
+            name: nextcloud-data-pvc
+          - mountPath: /var/www/html/config
+            name: nextcloud-config-pvc    
+          - mountPath: /var/www/html/scripts
+            name: nextcloud-post-config-volume
+            readOnly: true   
+      volumes:
+        - name: nextcloud-pvc
+          persistentVolumeClaim:
+            claimName: nextcloud-pvc
+        - name: nextcloud-data-pvc
+          persistentVolumeClaim:
+            claimName: nextcloud-data-pvc
+        - name: nextcloud-config-pvc
+          persistentVolumeClaim:
+            claimName: nextcloud-config-pvc            
+        - name: nextcloud-post-config-volume
+          configMap:
+            defaultMode: 0700
+            name: nextcloud-post-config
+
+
+
+
+
+
